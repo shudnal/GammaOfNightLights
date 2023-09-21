@@ -4,11 +4,10 @@
 Control luminance, moonlight and sunlight intensity, fog density and day/night cycle
 
 ## Features
-* Control luminance at night
-* Conrol luminance during the day in dark environments (marked as always dark like Rain, Thunderstorm, LightRain, Eikthyr, Swamp and so)
-* Exclude dungeons from luminance control (in case you want everything to be darker except indoors)
-* Control moonlight and sunlight intensity cause why not (moonlit swamp looks terrific)
-* Control fog density cause why not (what if you dislike or enjoy the fog)
+* Control luminance at nighttime, daytime, morning and evening
+* Control fog density at (that's actually means a lot)
+* Control luminance and fog density at indoors (that mean instanced locations like crypts, caves and so on)
+* Control moonlight and sunlight intensity (less luminance and more moonlight makes night more realistic, moonlit swamp looks terrific)
 * And at last control night length (like to make nights shorter but darker)
 * Configuration is server-synced
 
@@ -20,12 +19,24 @@ extract GammaOfNightLights.dll file to your BepInEx\Plugins\ folder
 ## Known issues
 * Mod should be compatible with any mod depends on day night cycle and any environment mod
 
+## Configurating
+The best way to handle configs is configuration manager. Choose one that works for you:
+
+https://www.nexusmods.com/site/mods/529
+
+https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationManager/
+
 ## Mirrors
 [Nexus](https://www.nexusmods.com/valheim/mods/2526)
 
 [Thunderstore](https://valheim.thunderstore.io/package/shudnal/GammaOfNightLights/)
 
 ## Changelog
+
+v 1.0.1
+* distinct common setting for indoors
+* more straightforward distinct settings for day, night, morning, evening
+* distinct fog density settings for day, night, morning, evening
 
 v 1.0.0
 * Initial release

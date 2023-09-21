@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using BepInEx;
 using BepInEx.Logging;
@@ -16,7 +15,7 @@ namespace GammaOfNightLights
     {
         const string pluginID = "shudnal.GammaOfNightLights";
         const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.0";
+        const string pluginVersion = "1.0.1";
 
         private Harmony _harmony;
 
@@ -27,13 +26,23 @@ namespace GammaOfNightLights
 
         private static ConfigEntry<bool> loggingEnabled;
 
+        private static ConfigEntry<float> indoorLuminanceMultiplier;
+        private static ConfigEntry<float> fogDensityIndoorsMultiplier;
+
+        private static ConfigEntry<float> dayLuminanceMultiplier;
+        private static ConfigEntry<float> fogDensityDayMultiplier;
+
+        private static ConfigEntry<float> eveningLuminanceMultiplier;
+        private static ConfigEntry<float> fogDensityEveningMultiplier;
+
+        private static ConfigEntry<float> morningLuminanceMultiplier;
+        private static ConfigEntry<float> fogDensityMorningMultiplier;
+
         private static ConfigEntry<float> nightLuminanceMultiplier;
-        private static ConfigEntry<bool> luminanceOnlyOutdoors;
-        private static ConfigEntry<float> luminanceInDarkEnvironments;
+        private static ConfigEntry<float> fogDensityNightMultiplier;
+
         private static ConfigEntry<float> lightIntensityDayMultiplier;
         private static ConfigEntry<float> lightIntensityNightMultiplier;
-
-        private static ConfigEntry<float> fogDensityMultiplier;
 
         private static ConfigEntry<int> nightLength;
 
@@ -68,17 +77,26 @@ namespace GammaOfNightLights
             modEnabled = config("General", "Enabled", defaultValue: true, "Enable the mod");
             configLocked = config("General", "Lock Configuration", defaultValue: true, "Configuration is locked and can be changed by server admins only.");
             loggingEnabled = config("General", "Enable logging", defaultValue: false, "Enable logging. [Not Synced with Server]", false);
+            
+            nightLength = config("Day night cycle", "Night length", defaultValue: 30, "Night length in percent of all day length. Default is 30%. It should be compatible with any daytime using mods.");
 
-            nightLuminanceMultiplier = config("Luminance", "Luminance at night", defaultValue: 1.0f, "Night light luminance multiplier to be applied at night");
-            luminanceInDarkEnvironments = config("Luminance", "Luminance in dark environments", defaultValue: 1.0f, "Light luminance multiplier to be applied in already dark environments (like rain or thunderstorm) despite time");
-            luminanceOnlyOutdoors = config("Luminance", "Set luminance only outdoors", defaultValue: true, "Luminance multipliers is only applied outdoors");
+            indoorLuminanceMultiplier = config("Location - Indoors", "Luminance at instanced locations", defaultValue: 1.0f, "Ambient light luminance multiplier to be applied indoors");
+            fogDensityIndoorsMultiplier = config("Location - Indoors", "Fog density indoors", defaultValue: 1.0f, "Fog density multiplier indoors");
+
+            nightLuminanceMultiplier = config("Time - Night", "Luminance at night", defaultValue: 1.0f, "Ambient light luminance multiplier to be applied at nighttime");
+            fogDensityNightMultiplier = config("Time - Night", "Fog density at night", defaultValue: 1.0f, "Fog density multiplier at nighttime");
+
+            dayLuminanceMultiplier = config("Time - Day", "Luminance at day", defaultValue: 1.0f, "Ambient light luminance multiplier to be applied at daytime");
+            fogDensityDayMultiplier = config("Time - Day", "Fog density at day", defaultValue: 1.0f, "Fog density multiplier at daytime");
+
+            eveningLuminanceMultiplier = config("Time - Evening", "Luminance at evening", defaultValue: 1.0f, "Ambient luminance multiplier to be applied at evening");
+            fogDensityEveningMultiplier = config("Time - Evening", "Fog density at evening", defaultValue: 1.0f, "Fog density multiplier at evening");
+            
+            morningLuminanceMultiplier = config("Time - Morning", "Luminance at morning", defaultValue: 1.0f, "Ambient luminance multiplier to be applied at morning");
+            fogDensityMorningMultiplier = config("Time - Morning", "Fog density at morning", defaultValue: 1.0f, "Fog density multiplier at morning");
 
             lightIntensityDayMultiplier = config("Light intensity", "Sunlight intensity", defaultValue: 1.0f, "Light intensity daytime multiplier (sun)");
             lightIntensityNightMultiplier = config("Light intensity", "Moonlight intensity", defaultValue: 1.0f, "Light intensity nighttime multiplier (moon)");
-
-            nightLength = config("Day night cycle", "Night length", defaultValue: 30, "Night length in percent of all day length. Default is 30%. It should be compatible with any daytime using mods.");
-
-            fogDensityMultiplier = config("Fog", "Fog density multiplier", defaultValue: 1.0f, "Fog density multiplier");
         }
 
         ConfigEntry<T> config<T>(string group, string name, T defaultValue, ConfigDescription description, bool synchronizedSetting = true)
@@ -130,42 +148,66 @@ namespace GammaOfNightLights
                     { "m_lightIntensityDay", new Color(env.m_lightIntensityDay / 100f, 0f, 0f) },
                     { "m_lightIntensityNight", new Color(env.m_lightIntensityNight / 100f, 0f, 0f)},
 
-                    {"m_fogDensityNight", new Color(env.m_fogDensityNight, 0f, 0f) },
-                    {"m_fogDensityMorning", new Color(env.m_fogDensityMorning, 0f, 0f) },
-                    {"m_fogDensityDay", new Color(env.m_fogDensityDay, 0f, 0f) },
-                    {"m_fogDensityEvening", new Color(env.m_fogDensityEvening, 0f, 0f) }
+                    { "m_fogDensityNight", new Color(env.m_fogDensityNight, 0f, 0f) },
+                    { "m_fogDensityMorning", new Color(env.m_fogDensityMorning, 0f, 0f) },
+                    { "m_fogDensityDay", new Color(env.m_fogDensityDay, 0f, 0f) },
+                    { "m_fogDensityEvening", new Color(env.m_fogDensityEvening, 0f, 0f) }
                 };
 
-                if (!luminanceOnlyOutdoors.Value || Player.m_localPlayer != null && !Player.m_localPlayer.InInterior())
+                if (Player.m_localPlayer != null && Player.m_localPlayer.InInterior())
                 {
-                    if (nightLuminanceMultiplier.Value != 1.0f)
+                    if (indoorLuminanceMultiplier.Value != 1.0f)
                     {
-                        env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, nightLuminanceMultiplier.Value);
-                        env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, nightLuminanceMultiplier.Value);
-                        env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, nightLuminanceMultiplier.Value);
-                        env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, nightLuminanceMultiplier.Value);
+                        env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, indoorLuminanceMultiplier.Value);
+                        env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, indoorLuminanceMultiplier.Value);
+                        env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, indoorLuminanceMultiplier.Value);
+                        env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, indoorLuminanceMultiplier.Value);
+                        env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, indoorLuminanceMultiplier.Value);
+                        env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, indoorLuminanceMultiplier.Value);
+                        env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, indoorLuminanceMultiplier.Value);
+
                     }
 
-                    if (luminanceInDarkEnvironments.Value != 1.0f && env.m_alwaysDark)
+                    if (fogDensityIndoorsMultiplier.Value != 1.0f)
                     {
-                        env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, luminanceInDarkEnvironments.Value);
-                        env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, luminanceInDarkEnvironments.Value);
-                        env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, luminanceInDarkEnvironments.Value);
-                        env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, luminanceInDarkEnvironments.Value);
-                        env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, luminanceInDarkEnvironments.Value);
-                        env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, luminanceInDarkEnvironments.Value);
-                        env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, luminanceInDarkEnvironments.Value);
-                        env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, luminanceInDarkEnvironments.Value);
-                        env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, luminanceInDarkEnvironments.Value);
+                        env.m_fogDensityNight *= fogDensityIndoorsMultiplier.Value;
+                        env.m_fogDensityMorning *= fogDensityIndoorsMultiplier.Value;
+                        env.m_fogDensityEvening *= fogDensityIndoorsMultiplier.Value;
+                        env.m_fogDensityDay *= fogDensityIndoorsMultiplier.Value;
                     }
                 }
-
-                if (fogDensityMultiplier.Value != 1.0f)
+                else
                 {
-                    env.m_fogDensityNight *= fogDensityMultiplier.Value;
-                    env.m_fogDensityMorning *= fogDensityMultiplier.Value;
-                    env.m_fogDensityDay *= fogDensityMultiplier.Value;
-                    env.m_fogDensityEvening *= fogDensityMultiplier.Value;
+                    env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, nightLuminanceMultiplier.Value);
+                    env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, nightLuminanceMultiplier.Value);
+                    env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, nightLuminanceMultiplier.Value);
+                    env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, nightLuminanceMultiplier.Value);
+                    
+                    env.m_fogDensityNight *= fogDensityNightMultiplier.Value;
+
+                    env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, morningLuminanceMultiplier.Value);
+                    env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, morningLuminanceMultiplier.Value);
+                    env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, morningLuminanceMultiplier.Value);
+                    
+                    env.m_fogDensityMorning *= fogDensityMorningMultiplier.Value;
+                    
+                    env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, dayLuminanceMultiplier.Value);
+                    env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, dayLuminanceMultiplier.Value);
+                    env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, dayLuminanceMultiplier.Value);
+
+                    env.m_fogDensityDay *= fogDensityDayMultiplier.Value;
+
+                    env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, eveningLuminanceMultiplier.Value);
+                    env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, eveningLuminanceMultiplier.Value);
+                    env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, eveningLuminanceMultiplier.Value);
+
+                    env.m_fogDensityEvening *= fogDensityEveningMultiplier.Value;
                 }
 
                 if (lightIntensityDayMultiplier.Value != 1.0f)
@@ -185,44 +227,29 @@ namespace GammaOfNightLights
                 if (!modEnabled.Value)
                     return;
 
-                if (nightLuminanceMultiplier.Value != 1.0f)
-                {
-                    env.m_ambColorNight = __state["m_ambColorNight"];
-                    env.m_fogColorNight = __state["m_fogColorNight"];
-                    env.m_fogColorSunNight = __state["m_fogColorSunNight"];
-                    env.m_sunColorNight = __state["m_sunColorNight"];
-                }
+                env.m_ambColorNight = __state["m_ambColorNight"];
+                env.m_fogColorNight = __state["m_fogColorNight"];
+                env.m_fogColorSunNight = __state["m_fogColorSunNight"];
+                env.m_sunColorNight = __state["m_sunColorNight"];
 
-                if (luminanceInDarkEnvironments.Value != 1.0f && env.m_alwaysDark)
-                {
-                    env.m_fogColorMorning = __state["m_fogColorMorning"];
-                    env.m_fogColorDay = __state["m_fogColorDay"];
-                    env.m_fogColorEvening = __state["m_fogColorEvening"];
-                    env.m_fogColorSunMorning = __state["m_fogColorSunMorning"];
-                    env.m_fogColorSunDay = __state["m_fogColorSunDay"];
-                    env.m_fogColorSunEvening = __state["m_fogColorSunEvening"];
-                    env.m_sunColorMorning = __state["m_sunColorMorning"];
-                    env.m_sunColorDay = __state["m_sunColorDay"];
-                    env.m_sunColorEvening = __state["m_sunColorEvening"];
-                }
+                env.m_fogColorMorning = __state["m_fogColorMorning"];
+                env.m_fogColorDay = __state["m_fogColorDay"];
+                env.m_fogColorEvening = __state["m_fogColorEvening"];
+                env.m_fogColorSunMorning = __state["m_fogColorSunMorning"];
+                env.m_fogColorSunDay = __state["m_fogColorSunDay"];
+                env.m_fogColorSunEvening = __state["m_fogColorSunEvening"];
+                env.m_sunColorMorning = __state["m_sunColorMorning"];
+                env.m_sunColorDay = __state["m_sunColorDay"];
+                env.m_sunColorEvening = __state["m_sunColorEvening"];
 
-                if (fogDensityMultiplier.Value != 1.0f)
-                {
-                    env.m_fogDensityNight = __state["m_fogDensityNight"].r;
-                    env.m_fogDensityMorning = __state["m_fogDensityMorning"].r;
-                    env.m_fogDensityDay = __state["m_fogDensityDay"].r;
-                    env.m_fogDensityEvening = __state["m_fogDensityEvening"].r;
-                }
+                env.m_fogDensityNight = __state["m_fogDensityNight"].r;
+                env.m_fogDensityMorning = __state["m_fogDensityMorning"].r;
+                env.m_fogDensityDay = __state["m_fogDensityDay"].r;
+                env.m_fogDensityEvening = __state["m_fogDensityEvening"].r;
 
-                if (lightIntensityDayMultiplier.Value != 1.0f)
-                {
-                    env.m_lightIntensityDay = __state["m_lightIntensityDay"].r * 100f;
-                }
-
-                if (lightIntensityNightMultiplier.Value != 1.0f)
-                {
-                    env.m_lightIntensityNight = __state["m_lightIntensityNight"].r * 100f;
-                }
+                env.m_lightIntensityDay = __state["m_lightIntensityDay"].r * 100f;
+                   
+                env.m_lightIntensityNight = __state["m_lightIntensityNight"].r * 100f;
             }
 
         }
