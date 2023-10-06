@@ -31,6 +31,12 @@ https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationMa
 
 ## Changelog
 
+v 1.0.3
+* patch 0.217.22, server sync fix
+
+v 1.0.2
+* patch 0.217.22
+
 v 1.0.1
 * distinct common setting for indoors
 * more straightforward distinct settings for day, night, morning, evening

@@ -15,7 +15,7 @@ namespace GammaOfNightLights
     {
         const string pluginID = "shudnal.GammaOfNightLights";
         const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.1";
+        const string pluginVersion = "1.0.3";
 
         private Harmony _harmony;
 
@@ -255,7 +255,7 @@ namespace GammaOfNightLights
         }
 
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.RescaleDayFraction))]
-        public static class EnvMan_RescaleDayFraction_DayNighLength
+        public static class EnvMan_RescaleDayFraction_DayNightLength
         {
             public static bool Prefix(EnvMan __instance, float fraction, ref float __result)
             {
@@ -289,7 +289,7 @@ namespace GammaOfNightLights
         }
 
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.GetMorningStartSec))]
-        public static class EnvMan_GetMorningStartSec_DayNighLength
+        public static class EnvMan_GetMorningStartSec_DayNightLength
         {
             public static bool Prefix(EnvMan __instance, int day, ref double __result)
             {
@@ -307,7 +307,7 @@ namespace GammaOfNightLights
         }
 
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.SkipToMorning))]
-        public static class EnvMan_SkipToMorning_DayNighLength
+        public static class EnvMan_SkipToMorning_DayNightLength
         {
             public static bool Prefix(EnvMan __instance, ref bool ___m_skipTime, ref double ___m_skipToTime, ref double ___m_timeSkipSpeed)
             {
