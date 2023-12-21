@@ -1,6 +1,6 @@
 {
   "name": "GammaOfNightLights",
-  "version_number": "1.0.3",
+  "version_number": "1.0.4",
   "website_url": "https://github.com/shudnal/GammaOfNightLights",
   "description": "Control luminance, moonlight and sunlight intensity, fog density and day/night cycle",
   "dependencies": ["denikson-BepInExPack_Valheim-5.4.2200"]

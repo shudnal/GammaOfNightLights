@@ -15,7 +15,7 @@ namespace GammaOfNightLights
     {
         const string pluginID = "shudnal.GammaOfNightLights";
         const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.3";
+        const string pluginVersion = "1.0.4";
 
         private Harmony _harmony;
 
@@ -262,7 +262,7 @@ namespace GammaOfNightLights
                 if (!modEnabled.Value)
                     return true;
 
-                if (nightLength.Value == 30)
+                if (nightLength.Value == 30 || nightLength.Value == 0)
                     return true;
 
                 float dayStart = (float)(nightLength.Value / 2) / 100f;
@@ -296,7 +296,7 @@ namespace GammaOfNightLights
                 if (!modEnabled.Value)
                     return true;
 
-                if (nightLength.Value == 30)
+                if (nightLength.Value == 30 || nightLength.Value == 0)
                     return true;
 
                 float dayStart = (float)(nightLength.Value / 2) / 100f;
@@ -314,7 +314,7 @@ namespace GammaOfNightLights
                 if (!modEnabled.Value)
                     return true;
 
-                if (nightLength.Value == 30)
+                if (nightLength.Value == 30 || nightLength.Value == 0)
                     return true;
 
                 float dayStart = (float)(nightLength.Value / 2) / 100f;

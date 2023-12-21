@@ -31,6 +31,9 @@ https://valheim.thunderstore.io/package/Azumatt/Official_BepInEx_ConfigurationMa
 
 ## Changelog
 
+v 1.0.4
+* nighttime can not be set to 0
+
 v 1.0.3
 * patch 0.217.22, server sync fix
 
