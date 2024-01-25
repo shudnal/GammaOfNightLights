@@ -363,3 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 /thunderstore/GammaOfNightLights.dll
 /thunderstore/GammaOfNightLights.zip
+/package/thunderstore/GammaOfNightLights.zip
+/package/thunderstore/GammaOfNightLights/GammaOfNightLights.dll
