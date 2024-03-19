@@ -3,6 +3,8 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 using ServerSync;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace GammaOfNightLights
 {
@@ -11,7 +13,7 @@ namespace GammaOfNightLights
     {
         const string pluginID = "shudnal.GammaOfNightLights";
         const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.5";
+        const string pluginVersion = "1.0.6";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
@@ -37,12 +39,18 @@ namespace GammaOfNightLights
 
         private static ConfigEntry<float> lightIntensityDayMultiplier;
         private static ConfigEntry<float> lightIntensityNightMultiplier;
-
+        
+        private static ConfigEntry<bool> enableDayNightCycle;
         private static ConfigEntry<int> nightLength;
+        private static ConfigEntry<long> dayLengthSec;
+
+        public static GammaOfNightLights instance;
 
         private void Awake()
         {
             harmony.PatchAll();
+
+            instance = this;
 
             Game.isModded = true;
 
@@ -55,16 +63,21 @@ namespace GammaOfNightLights
             Config.Save();
             harmony?.UnpatchSelf();
         }
+        public static void LogInfo(object data)
+        {
+            instance.Logger.LogInfo(data);
+        }
 
         private void ConfigInit()
         {
-            
             config("General", "NexusID", 2526, "Nexus mod ID for updates", false);
 
             modEnabled = config("General", "Enabled", defaultValue: true, "Enable the mod");
             configLocked = config("General", "Lock Configuration", defaultValue: true, "Configuration is locked and can be changed by server admins only.");
-            
-            nightLength = config("Day night cycle", "Night length", defaultValue: 30, "Night length in percent of all day length. Default is 30%. It should be compatible with any daytime using mods.");
+
+            enableDayNightCycle = config("Day night cycle", "Enabled", defaultValue: false, "Enable changing the day/night cycle");
+            nightLength = config("Day night cycle", "Night length", defaultValue: 30, "Night length in percents of all day length. Default is 30%. Left it at 30 to preserve compatibility with other mods.");
+            dayLengthSec = config("Day night cycle", "Day length in seconds", defaultValue: 1800L, "Day length in seconds. Vanilla - 1800 seconds.");
 
             indoorLuminanceMultiplier = config("Location - Indoors", "Luminance at instanced locations", defaultValue: 1.0f, "Ambient light luminance multiplier to be applied indoors");
             fogDensityIndoorsMultiplier = config("Location - Indoors", "Fog density indoors", defaultValue: 1.0f, "Fog density multiplier indoors");
@@ -77,7 +90,7 @@ namespace GammaOfNightLights
 
             eveningLuminanceMultiplier = config("Time - Evening", "Luminance at evening", defaultValue: 1.0f, "Ambient luminance multiplier to be applied at evening");
             fogDensityEveningMultiplier = config("Time - Evening", "Fog density at evening", defaultValue: 1.0f, "Fog density multiplier at evening");
-            
+
             morningLuminanceMultiplier = config("Time - Morning", "Luminance at morning", defaultValue: 1.0f, "Ambient luminance multiplier to be applied at morning");
             fogDensityMorningMultiplier = config("Time - Morning", "Fog density at morning", defaultValue: 1.0f, "Fog density multiplier at morning");
 
@@ -97,6 +110,16 @@ namespace GammaOfNightLights
 
         ConfigEntry<T> config<T>(string group, string name, T defaultValue, string description, bool synchronizedSetting = true) => config(group, name, defaultValue, new ConfigDescription(description), synchronizedSetting);
 
+        private static float GetDayStartFraction()
+        {
+            return nightLength.Value / 2f / 100f;
+        }
+
+        private static bool ControlNightLength()
+        {
+            return modEnabled.Value && enableDayNightCycle.Value && nightLength.Value != 30 && nightLength.Value != 0;
+        }
+
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.SetEnv))]
         public static class EnvMan_SetEnv_LuminancePatch
         {
@@ -107,16 +130,18 @@ namespace GammaOfNightLights
                 public Color m_fogColorSunNight;
                 public Color m_sunColorNight;
 
-                public Color m_ambColorDay;
                 public Color m_fogColorMorning;
-                public Color m_fogColorDay;
-                public Color m_fogColorEvening;
                 public Color m_fogColorSunMorning;
-                public Color m_fogColorSunDay;
-                public Color m_fogColorSunEvening;
                 public Color m_sunColorMorning;
+
+                public Color m_ambColorDay;
+                public Color m_fogColorDay;
+                public Color m_fogColorSunDay;
                 public Color m_sunColorDay;
+
                 public Color m_sunColorEvening;
+                public Color m_fogColorEvening;
+                public Color m_fogColorSunEvening;
 
                 public float m_lightIntensityDay;
                 public float m_lightIntensityNight;
@@ -136,27 +161,25 @@ namespace GammaOfNightLights
                 return newColor.ToRGBA();
             }
 
-            [HarmonyPriority(Priority.Last)]
-            public static void Prefix(EnvSetup env)
+            private static void SaveState(EnvSetup env)
             {
-                if (!modEnabled.Value)
-                    return;
-
                 _lightState.m_ambColorNight = env.m_ambColorNight;
+                _lightState.m_sunColorNight = env.m_sunColorNight;
                 _lightState.m_fogColorNight = env.m_fogColorNight;
                 _lightState.m_fogColorSunNight = env.m_fogColorSunNight;
-                _lightState.m_sunColorNight = env.m_sunColorNight;
 
                 _lightState.m_ambColorDay = env.m_ambColorDay;
-                _lightState.m_fogColorMorning = env.m_fogColorMorning;
-                _lightState.m_fogColorDay = env.m_fogColorDay;
-                _lightState.m_fogColorEvening = env.m_fogColorEvening;
-                _lightState.m_fogColorSunMorning = env.m_fogColorSunMorning;
-                _lightState.m_fogColorSunDay = env.m_fogColorSunDay;
-                _lightState.m_fogColorSunEvening = env.m_fogColorSunEvening;
-                _lightState.m_sunColorMorning = env.m_sunColorMorning;
                 _lightState.m_sunColorDay = env.m_sunColorDay;
+                _lightState.m_fogColorDay = env.m_fogColorDay;
+                _lightState.m_fogColorSunDay = env.m_fogColorSunDay;
+
+                _lightState.m_sunColorMorning = env.m_sunColorMorning;
+                _lightState.m_fogColorMorning = env.m_fogColorMorning;
+                _lightState.m_fogColorSunMorning = env.m_fogColorSunMorning;
+
                 _lightState.m_sunColorEvening = env.m_sunColorEvening;
+                _lightState.m_fogColorEvening = env.m_fogColorEvening;
+                _lightState.m_fogColorSunEvening = env.m_fogColorSunEvening;
 
                 _lightState.m_lightIntensityDay = env.m_lightIntensityDay;
                 _lightState.m_lightIntensityNight = env.m_lightIntensityNight;
@@ -165,94 +188,27 @@ namespace GammaOfNightLights
                 _lightState.m_fogDensityMorning = env.m_fogDensityMorning;
                 _lightState.m_fogDensityDay = env.m_fogDensityDay;
                 _lightState.m_fogDensityEvening = env.m_fogDensityEvening;
-
-                if (Player.m_localPlayer != null && Player.m_localPlayer.InInterior())
-                {
-                    if (indoorLuminanceMultiplier.Value != 1.0f)
-                    {
-                        env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, indoorLuminanceMultiplier.Value);
-                        env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, indoorLuminanceMultiplier.Value);
-                        env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, indoorLuminanceMultiplier.Value);
-                        env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, indoorLuminanceMultiplier.Value);
-                        env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, indoorLuminanceMultiplier.Value);
-                        env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, indoorLuminanceMultiplier.Value);
-                        env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, indoorLuminanceMultiplier.Value);
-
-                    }
-
-                    if (fogDensityIndoorsMultiplier.Value != 1.0f)
-                    {
-                        env.m_fogDensityNight *= fogDensityIndoorsMultiplier.Value;
-                        env.m_fogDensityMorning *= fogDensityIndoorsMultiplier.Value;
-                        env.m_fogDensityEvening *= fogDensityIndoorsMultiplier.Value;
-                        env.m_fogDensityDay *= fogDensityIndoorsMultiplier.Value;
-                    }
-                }
-                else
-                {
-                    env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, nightLuminanceMultiplier.Value);
-                    env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, nightLuminanceMultiplier.Value);
-                    env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, nightLuminanceMultiplier.Value);
-                    env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, nightLuminanceMultiplier.Value);
-                    
-                    env.m_fogDensityNight *= fogDensityNightMultiplier.Value;
-
-                    env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, morningLuminanceMultiplier.Value);
-                    env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, morningLuminanceMultiplier.Value);
-                    env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, morningLuminanceMultiplier.Value);
-                    
-                    env.m_fogDensityMorning *= fogDensityMorningMultiplier.Value;
-                    
-                    env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, dayLuminanceMultiplier.Value);
-                    env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, dayLuminanceMultiplier.Value);
-                    env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, dayLuminanceMultiplier.Value);
-
-                    env.m_fogDensityDay *= fogDensityDayMultiplier.Value;
-
-                    env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, eveningLuminanceMultiplier.Value);
-                    env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, eveningLuminanceMultiplier.Value);
-                    env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, eveningLuminanceMultiplier.Value);
-
-                    env.m_fogDensityEvening *= fogDensityEveningMultiplier.Value;
-                }
-
-                if (lightIntensityDayMultiplier.Value != 1.0f)
-                {
-                    env.m_lightIntensityDay *= lightIntensityDayMultiplier.Value;
-                }
-
-                if (lightIntensityNightMultiplier.Value != 1.0f)
-                {
-                    env.m_lightIntensityNight *= lightIntensityNightMultiplier.Value;
-                }
             }
 
-            [HarmonyPriority(Priority.First)]
-            public static void Postfix(EnvSetup env)
+            private static void RestoreState(EnvSetup env)
             {
-                if (!modEnabled.Value)
-                    return;
-
                 env.m_ambColorNight = _lightState.m_ambColorNight;
+                env.m_sunColorNight = _lightState.m_sunColorNight;
                 env.m_fogColorNight = _lightState.m_fogColorNight;
                 env.m_fogColorSunNight = _lightState.m_fogColorSunNight;
-                env.m_sunColorNight = _lightState.m_sunColorNight;
 
-                env.m_fogColorMorning = _lightState.m_fogColorMorning;
-                env.m_fogColorDay = _lightState.m_fogColorDay;
-                env.m_fogColorEvening = _lightState.m_fogColorEvening;
-                env.m_fogColorSunMorning = _lightState.m_fogColorSunMorning;
-                env.m_fogColorSunDay = _lightState.m_fogColorSunDay;
-                env.m_fogColorSunEvening = _lightState.m_fogColorSunEvening;
-                env.m_sunColorMorning = _lightState.m_sunColorMorning;
+                env.m_ambColorDay = _lightState.m_ambColorDay;
                 env.m_sunColorDay = _lightState.m_sunColorDay;
+                env.m_fogColorDay = _lightState.m_fogColorDay;
+                env.m_fogColorSunDay = _lightState.m_fogColorSunDay;
+
+                env.m_sunColorMorning = _lightState.m_sunColorMorning;
+                env.m_fogColorMorning = _lightState.m_fogColorMorning;
+                env.m_fogColorSunMorning = _lightState.m_fogColorSunMorning;
+
                 env.m_sunColorEvening = _lightState.m_sunColorEvening;
+                env.m_fogColorEvening = _lightState.m_fogColorEvening;
+                env.m_fogColorSunEvening = _lightState.m_fogColorSunEvening;
 
                 env.m_fogDensityNight = _lightState.m_fogDensityNight;
                 env.m_fogDensityMorning = _lightState.m_fogDensityMorning;
@@ -263,23 +219,69 @@ namespace GammaOfNightLights
                 env.m_lightIntensityNight = _lightState.m_lightIntensityNight;
             }
 
+            private static void ChangeEnvColor(EnvSetup env, bool indoors = false)
+            {
+                env.m_ambColorNight = ChangeColorLuminance(env.m_ambColorNight, indoors ? indoorLuminanceMultiplier.Value : nightLuminanceMultiplier.Value);
+                env.m_fogColorNight = ChangeColorLuminance(env.m_fogColorNight, indoors ? indoorLuminanceMultiplier.Value : nightLuminanceMultiplier.Value);
+                env.m_fogColorSunNight = ChangeColorLuminance(env.m_fogColorSunNight, indoors ? indoorLuminanceMultiplier.Value : nightLuminanceMultiplier.Value);
+                env.m_sunColorNight = ChangeColorLuminance(env.m_sunColorNight, indoors ? indoorLuminanceMultiplier.Value : nightLuminanceMultiplier.Value);
+
+                env.m_fogColorMorning = ChangeColorLuminance(env.m_fogColorMorning, indoors ? indoorLuminanceMultiplier.Value : morningLuminanceMultiplier.Value);
+                env.m_fogColorSunMorning = ChangeColorLuminance(env.m_fogColorSunMorning, indoors ? indoorLuminanceMultiplier.Value : morningLuminanceMultiplier.Value);
+                env.m_sunColorMorning = ChangeColorLuminance(env.m_sunColorMorning, indoors ? indoorLuminanceMultiplier.Value : morningLuminanceMultiplier.Value);
+
+                env.m_ambColorDay = ChangeColorLuminance(env.m_ambColorDay, indoors ? indoorLuminanceMultiplier.Value : dayLuminanceMultiplier.Value);
+                env.m_fogColorDay = ChangeColorLuminance(env.m_fogColorDay, indoors ? indoorLuminanceMultiplier.Value : dayLuminanceMultiplier.Value);
+                env.m_fogColorSunDay = ChangeColorLuminance(env.m_fogColorSunDay, indoors ? indoorLuminanceMultiplier.Value : dayLuminanceMultiplier.Value);
+                env.m_sunColorDay = ChangeColorLuminance(env.m_sunColorDay, indoors ? indoorLuminanceMultiplier.Value : dayLuminanceMultiplier.Value);
+
+                env.m_fogColorEvening = ChangeColorLuminance(env.m_fogColorEvening, indoors ? indoorLuminanceMultiplier.Value : eveningLuminanceMultiplier.Value);
+                env.m_fogColorSunEvening = ChangeColorLuminance(env.m_fogColorSunEvening, indoors ? indoorLuminanceMultiplier.Value : eveningLuminanceMultiplier.Value);
+                env.m_sunColorEvening = ChangeColorLuminance(env.m_sunColorEvening, indoors ? indoorLuminanceMultiplier.Value : eveningLuminanceMultiplier.Value);
+
+                env.m_fogDensityNight *= indoors ? fogDensityIndoorsMultiplier.Value : fogDensityNightMultiplier.Value;
+                env.m_fogDensityMorning *= indoors ? fogDensityIndoorsMultiplier.Value : fogDensityMorningMultiplier.Value;
+                env.m_fogDensityDay *= indoors ? fogDensityIndoorsMultiplier.Value : fogDensityDayMultiplier.Value;
+                env.m_fogDensityEvening *= indoors ? fogDensityIndoorsMultiplier.Value : fogDensityEveningMultiplier.Value;
+
+                env.m_lightIntensityDay *= lightIntensityDayMultiplier.Value;
+                env.m_lightIntensityNight *= lightIntensityNightMultiplier.Value;
+            }
+
+            [HarmonyPriority(Priority.Last)]
+            public static void Prefix(EnvSetup env)
+            {
+                if (!modEnabled.Value)
+                    return;
+
+                SaveState(env);
+
+                ChangeEnvColor(env, indoors: Player.m_localPlayer != null && Player.m_localPlayer.InInterior());
+            }
+
+            [HarmonyPriority(Priority.First)]
+            public static void Postfix(EnvSetup env)
+            {
+                if (!modEnabled.Value)
+                    return;
+
+                RestoreState(env);
+            }
         }
 
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.RescaleDayFraction))]
         public static class EnvMan_RescaleDayFraction_DayNightLength
         {
+            [HarmonyPriority(Priority.VeryHigh)]
             public static bool Prefix(float fraction, ref float __result)
             {
-                if (!modEnabled.Value)
+                if (!ControlNightLength())
                     return true;
 
-                if (nightLength.Value == 30 || nightLength.Value == 0)
-                    return true;
-
-                float dayStart = (float)(nightLength.Value / 2) / 100f;
+                float dayStart = GetDayStartFraction();
                 float nightStart = 1.0f - dayStart;
                 
-                if (fraction >= dayStart && fraction <= nightStart)
+                if (dayStart <= fraction && fraction <= nightStart)
                 {
                     float num = (fraction - dayStart) / (nightStart - dayStart);
                     fraction = 0.25f + num * 0.5f;
@@ -302,17 +304,13 @@ namespace GammaOfNightLights
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.GetMorningStartSec))]
         public static class EnvMan_GetMorningStartSec_DayNightLength
         {
+            [HarmonyPriority(Priority.VeryHigh)]
             public static bool Prefix(EnvMan __instance, int day, ref double __result)
             {
-                if (!modEnabled.Value)
+                if (!ControlNightLength())
                     return true;
-
-                if (nightLength.Value == 30 || nightLength.Value == 0)
-                    return true;
-
-                float dayStart = (float)(nightLength.Value / 2) / 100f;
-               
-                __result = (float)(day * __instance.m_dayLengthSec) + (float)__instance.m_dayLengthSec * dayStart;
+                    
+                __result = (day * __instance.m_dayLengthSec) + __instance.m_dayLengthSec * GetDayStartFraction();
                 return false;
             }
         }
@@ -320,29 +318,52 @@ namespace GammaOfNightLights
         [HarmonyPatch(typeof(EnvMan), nameof(EnvMan.SkipToMorning))]
         public static class EnvMan_SkipToMorning_DayNightLength
         {
+            [HarmonyPriority(Priority.VeryHigh)]
             public static bool Prefix(EnvMan __instance, ref bool ___m_skipTime, ref double ___m_skipToTime, ref double ___m_timeSkipSpeed)
             {
-                if (!modEnabled.Value)
+                if (!ControlNightLength())
                     return true;
 
-                if (nightLength.Value == 30 || nightLength.Value == 0)
+                if (GetDayStartFraction() == EnvMan.c_MorningL)
                     return true;
-
-                float dayStart = (float)(nightLength.Value / 2) / 100f;
 
                 double timeSeconds = ZNet.instance.GetTimeSeconds();
-                double time = timeSeconds - (double)((float)__instance.m_dayLengthSec * dayStart);
-                int day = __instance.GetDay(time);
+                double startOfMorning = timeSeconds - timeSeconds % __instance.m_dayLengthSec + __instance.m_dayLengthSec * GetDayStartFraction();
+
+                int day = __instance.GetDay(startOfMorning);
                 double morningStartSec = __instance.GetMorningStartSec(day + 1);
+
                 ___m_skipTime = true;
                 ___m_skipToTime = morningStartSec;
+
                 double num = morningStartSec - timeSeconds;
                 ___m_timeSkipSpeed = num / 12.0;
-                ZLog.Log((object)("Time " + timeSeconds + ", day:" + day + "    nextm:" + morningStartSec + "  skipspeed:" + ___m_timeSkipSpeed));
+                
+                LogInfo($"Time: {timeSeconds, -10:F2} Day: {day} Next morning: {morningStartSec, -10:F2} Skipspeed: {___m_timeSkipSpeed,-5:F2}");
 
                 return false;
             }
         }
 
-    } 
+        [HarmonyPatch]
+        public static class EnvMan_DayLength
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+            {
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.Awake));
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.FixedUpdate));
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.GetCurrentDay));
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.GetDay));
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.GetMorningStartSec));
+                yield return AccessTools.Method(typeof(EnvMan), nameof(EnvMan.SkipToMorning));
+            }
+
+            [HarmonyPriority(Priority.First)]
+            private static void Prefix(ref long ___m_dayLengthSec)
+            {
+                if (enableDayNightCycle.Value && dayLengthSec.Value != 0L && ___m_dayLengthSec != dayLengthSec.Value)
+                    ___m_dayLengthSec = dayLengthSec.Value;
+            }
+        }
+    }
 }

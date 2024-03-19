@@ -1,3 +1,7 @@
+v 1.0.6
+* option to set day length in seconds
+* fix for day ambient color control (day luminance)
+
 v 1.0.5
 * optimization to gamma control
 
