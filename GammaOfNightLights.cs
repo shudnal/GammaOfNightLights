@@ -13,7 +13,7 @@ namespace GammaOfNightLights
     {
         const string pluginID = "shudnal.GammaOfNightLights";
         const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.6";
+        const string pluginVersion = "1.0.7";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 

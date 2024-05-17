@@ -1,3 +1,6 @@
+v 1.0.7
+* Ashlands
+
 v 1.0.6
 * option to set day length in seconds
 * fix for day ambient color control (day luminance)
