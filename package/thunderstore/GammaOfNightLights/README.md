@@ -30,3 +30,6 @@ Or [Official BepInEx Configuration Manager](https://valheim.thunderstore.io/pack
 
 ## Mirrors
 [Nexus](https://www.nexusmods.com/valheim/mods/2526)
+
+## Donation
+[Buy Me a Coffee](https://buymeacoffee.com/shudnal)

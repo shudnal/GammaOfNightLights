@@ -11,9 +11,9 @@ namespace GammaOfNightLights
     [BepInPlugin(pluginID, pluginName, pluginVersion)]
     public class GammaOfNightLights : BaseUnityPlugin
     {
-        const string pluginID = "shudnal.GammaOfNightLights";
-        const string pluginName = "Gamma of Night Lights";
-        const string pluginVersion = "1.0.7";
+        public const string pluginID = "shudnal.GammaOfNightLights";
+        public const string pluginName = "Gamma of Night Lights";
+        public const string pluginVersion = "1.0.8";
 
         private readonly Harmony harmony = new Harmony(pluginID);
 
