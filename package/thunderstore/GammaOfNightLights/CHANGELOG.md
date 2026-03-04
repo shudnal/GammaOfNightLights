@@ -1,3 +1,6 @@
+# 1.0.9
+* little optimizations
+
 # 1.0.8
 * patch 0.220.3
 * ServerSync updated

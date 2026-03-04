@@ -15,7 +15,10 @@ Control luminance, moonlight and sunlight intensity, fog density and day/night l
 
 Night length control is not just brightness control but actual day and night routine. It doesn't interfere with overall day length but changing the proportions of day/night cycle. It DOES mean more dangerous creatures at set long nights.
 
-If you like darker nights and want configurable light source you should check [CircletExtended](https://thunderstore.io/c/valheim/p/shudnal/CircletExtended/)
+If you like darker nights and want more configurable light sources you should check
+* [CircletExtended](https://thunderstore.io/c/valheim/p/shudnal/CircletExtended/)
+* [HipLantern](https://thunderstore.io/c/valheim/p/shudnal/HipLantern/)
+* [Firefly](https://thunderstore.io/c/valheim/p/shudnal/Firefly/)
 
 ## Installation (manual)
 extract GammaOfNightLights.dll file to your BepInEx\Plugins\ folder
@@ -33,3 +36,6 @@ Or [Official BepInEx Configuration Manager](https://valheim.thunderstore.io/pack
 
 ## Donation
 [Buy Me a Coffee](https://buymeacoffee.com/shudnal)
+
+## Discord
+[Join server](https://discord.gg/e3UtQB8GFK)
